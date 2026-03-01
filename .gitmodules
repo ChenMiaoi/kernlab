@@ -1,0 +1,6 @@
+[submodule "linux"]
+	path = linux
+	url = git@github.com:ChenMiaoi/linux.git
+[submodule "busybox"]
+	path = busybox
+	url = git://busybox.net/busybox.git
