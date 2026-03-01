@@ -173,17 +173,38 @@ if [[ -n "${LLVM}" ]]; then
     MAKE_ARGS+=(LLVM="${LLVM}")
 fi
 
+run_make() {
+    local -a env_cmd=(env)
+
+    # Empty exported vars override kernel defaults (e.g. OBJCOPY ?= ...),
+    # so drop them from the environment when they are blank.
+    if [[ -z "${CROSS_COMPILE}" ]]; then
+        env_cmd+=(-u CROSS_COMPILE)
+    fi
+    if [[ -z "${OBJCOPY}" ]]; then
+        env_cmd+=(-u OBJCOPY)
+    fi
+    if [[ -z "${NM}" ]]; then
+        env_cmd+=(-u NM)
+    fi
+    if [[ -z "${LLVM}" ]]; then
+        env_cmd+=(-u LLVM)
+    fi
+
+    "${env_cmd[@]}" make "${MAKE_ARGS[@]}" "$@"
+}
+
 if [[ "${FORCE_DEFCONFIG}" -eq 1 || ! -f "${OUT_DIR}/.config" ]]; then
-    make "${MAKE_ARGS[@]}" "${DEFCONFIG}"
+    run_make "${DEFCONFIG}"
 else
-    make "${MAKE_ARGS[@]}" olddefconfig
+    run_make olddefconfig
 fi
 
 if [[ "${MENUCONFIG}" -eq 1 ]]; then
-    make "${MAKE_ARGS[@]}" menuconfig
+    run_make menuconfig
 fi
 
-make "${MAKE_ARGS[@]}" -j"${JOBS}" "${KERNEL_TARGET}"
+run_make -j"${JOBS}" "${KERNEL_TARGET}"
 
 echo "Kernel built successfully:"
 echo "  ${OUT_DIR}/${KERNEL_IMAGE_REL}"
