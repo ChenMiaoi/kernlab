@@ -2,7 +2,7 @@ SHELL := /usr/bin/env bash
 
 ARCH ?= x86_64
 JOBS ?= $(shell nproc)
-CI_QEMU_TIMEOUT ?= 90
+CI_QEMU_TIMEOUT ?= 300
 
 CROSS_COMPILE ?=
 OBJCOPY ?=

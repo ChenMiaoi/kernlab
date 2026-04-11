@@ -27,4 +27,4 @@ jobs:
       - name: Run CI scripts
         run: |
           set -euo pipefail
-          make -C ci ci ARCH=x86_64 JOBS="$(nproc)" CI_QEMU_TIMEOUT=120
+          make -C ci ci ARCH=x86_64 JOBS="$(nproc)"

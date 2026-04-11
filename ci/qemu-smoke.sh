@@ -16,7 +16,9 @@ fi
 
 OUT_DIR="${OUT_DIR:-${REPO_DIR}/out/${ARCH}}"
 INITRAMFS_DIR="${INITRAMFS_DIR:-${REPO_DIR}/out/initramfs/${ARCH}}"
-CI_QEMU_TIMEOUT="${CI_QEMU_TIMEOUT:-90}"
+# GitHub-hosted CI often boots under pure TCG without acceleration, so the
+# smoke timeout needs more slack than a typical local run.
+CI_QEMU_TIMEOUT="${CI_QEMU_TIMEOUT:-300}"
 
 CONSOLE="$(console_for_arch "${ARCH}")"
 KERNEL_CMDLINE="${KERNEL_CMDLINE:-console=${CONSOLE} rdinit=/init loglevel=7 printk.time=1 panic=1}"
