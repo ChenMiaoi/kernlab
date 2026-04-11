@@ -4,13 +4,27 @@
 
 ## 1. 依赖
 
-以 Debian/Ubuntu 为例：
+`scripts/build-kernel.sh`、`scripts/build-busybox.sh`、`scripts/build-qemu.sh` 和 `scripts/build-initramfs.sh` 会先自动检查依赖；
+缺失时会按系统可用的包管理器自动安装，当前支持 `apt-get`、`dnf`、`yum`、`pacman`、`zypper`、`apk`。
+
+如果你只想先检查：
+
+```bash
+python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only
+```
+
+如果你不想在构建时自动安装依赖，可设置 `ENSURE_BUILD_DEPS=0`。
+
+QEMU 不再通过系统包管理器安装二进制，而是使用仓库内 `qemu/` submodule 从源码构建。
+
+下面仍保留 Debian/Ubuntu 的手动安装示例（这些是构建依赖，不包含 QEMU 二进制包）：
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-  build-essential bc bison flex libelf-dev libssl-dev \
-  cpio gzip qemu-system-x86 qemu-system-arm qemu-system-misc busybox
+  build-essential perl bc bison flex libelf-dev libssl-dev file binutils \
+  cpio gzip busybox python3 python3-venv ninja-build pkg-config \
+  libglib2.0-dev libpixman-1-dev zlib1g-dev
 ```
 
 如果你在 x86_64 主机上编译 `arm/arm64/riscv`，还需要交叉工具链，例如：
@@ -35,6 +49,7 @@ sudo apt-get install -y libc6-dev-armhf-cross libc6-dev-arm64-cross libc6-dev-ri
 在仓库根目录执行：
 
 ```bash
+git submodule update --init --recursive --depth 1 linux busybox qemu
 ./scripts/build-and-run-qemu.sh
 ```
 
@@ -62,6 +77,7 @@ reboot -f
 ```bash
 ./scripts/build-kernel.sh
 ./scripts/build-busybox.sh
+./scripts/build-qemu.sh
 ./scripts/build-initramfs.sh
 ./scripts/run-qemu.sh
 ```
