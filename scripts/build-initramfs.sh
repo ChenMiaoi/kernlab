@@ -142,6 +142,7 @@ copy_into_rootfs() {
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ENSURE_DEPS_PY="${SCRIPT_DIR}/ensure-build-deps.py"
 
 ARCH_RAW="${ARCH:-x86_64}"
 if ! ARCH="$(normalize_arch "${ARCH_RAW}")"; then
@@ -154,6 +155,23 @@ ROOTFS_DIR="${ROOTFS_DIR:-${INITRAMFS_DIR}/rootfs}"
 INITRAMFS_IMAGE="${INITRAMFS_IMAGE:-${INITRAMFS_DIR}/initramfs.cpio.gz}"
 BUSYBOX_BIN="${BUSYBOX_BIN:-}"
 HOST_ARCH="$(normalize_arch "$(uname -m)" 2>/dev/null || true)"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+if [[ "${ENSURE_BUILD_DEPS:-1}" != "0" ]]; then
+    if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+        echo "Missing required command: ${PYTHON_BIN}" >&2
+        echo "Install Python 3, or set ENSURE_BUILD_DEPS=0 to skip automatic dependency preparation." >&2
+        exit 1
+    fi
+
+    ensure_args=(
+        "${ENSURE_DEPS_PY}"
+        --component initramfs
+        --arch "${ARCH}"
+    )
+
+    "${PYTHON_BIN}" "${ensure_args[@]}"
+fi
 
 if [[ -z "${BUSYBOX_BIN}" ]]; then
     BUSYBOX_BIN="$(detect_busybox_bin "${ARCH}" || true)"

@@ -88,6 +88,7 @@ done
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "${SCRIPT_DIR}/.." && pwd)"
+ENSURE_DEPS_PY="${SCRIPT_DIR}/ensure-build-deps.py"
 
 LINUX_DIR="${LINUX_DIR:-${REPO_DIR}/linux}"
 ARCH="${ARCH:-x86_64}"
@@ -129,10 +130,36 @@ LLVM="${LLVM:-}"
 CROSS_COMPILE="${CROSS_COMPILE:-}"
 OBJCOPY="${OBJCOPY:-}"
 NM="${NM:-}"
+PYTHON_BIN="${PYTHON_BIN:-python3}"
 
 if [[ ! -d "${LINUX_DIR}" ]]; then
     echo "Linux source tree not found: ${LINUX_DIR}" >&2
     exit 1
+fi
+
+if [[ "${ENSURE_BUILD_DEPS:-1}" != "0" ]]; then
+    if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
+        echo "Missing required command: ${PYTHON_BIN}" >&2
+        echo "Install Python 3, or set ENSURE_BUILD_DEPS=0 to skip automatic dependency preparation." >&2
+        exit 1
+    fi
+
+    ensure_args=(
+        "${ENSURE_DEPS_PY}"
+        --component kernel
+        --arch "${ARCH}"
+    )
+    if [[ -n "${CROSS_COMPILE}" ]]; then
+        ensure_args+=(--cross-compile "${CROSS_COMPILE}")
+    fi
+    if [[ -n "${LLVM}" ]]; then
+        ensure_args+=(--llvm)
+    fi
+    if [[ "${MENUCONFIG}" -eq 1 ]]; then
+        ensure_args+=(--menuconfig)
+    fi
+
+    "${PYTHON_BIN}" "${ensure_args[@]}"
 fi
 
 mkdir -p "${OUT_DIR}"
