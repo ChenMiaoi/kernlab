@@ -17,7 +17,10 @@ Environment variables:
   CROSS_COMPILE   Toolchain prefix for cross build (optional, auto-detected)
   OBJCOPY         Objcopy binary override (optional, auto-detected for riscv)
   NM              Nm binary override (optional, auto-detected for riscv)
-  LLVM            Use LLVM toolchain when set (optional)
+  LLVM            LLVM toolchain mode. Default: 1. Set to 0 to use GCC/binutils.
+  KERNEL_DEBUG    1: wrap the compile step with bear and refresh compile_commands.json
+                  for clangd (default: 1)
+  BEAR_BIN        Bear binary override (default: bear)
 EOF
 }
 
@@ -126,14 +129,32 @@ OUT_DIR="${OUT_DIR:-${REPO_DIR}/out/${ARCH}}"
 DEFCONFIG="${DEFCONFIG:-${DEFCONFIG_DEFAULT}}"
 JOBS="${JOBS:-$(nproc)}"
 KERNEL_TARGET="${KERNEL_TARGET:-${KERNEL_TARGET_DEFAULT}}"
-LLVM="${LLVM:-}"
+LLVM="${LLVM:-1}"
 CROSS_COMPILE="${CROSS_COMPILE:-}"
 OBJCOPY="${OBJCOPY:-}"
 NM="${NM:-}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+KERNEL_DEBUG="${KERNEL_DEBUG:-1}"
+BEAR_BIN="${BEAR_BIN:-bear}"
+KERNEL_COMPDB_OUT="${OUT_DIR}/compile_commands.json"
+KERNEL_COMPDB_LINK="${REPO_DIR}/compile_commands.json"
 
 if [[ ! -d "${LINUX_DIR}" ]]; then
     echo "Linux source tree not found: ${LINUX_DIR}" >&2
+    exit 1
+fi
+
+case "${LLVM}" in
+    ""|0)
+        LLVM=""
+        ;;
+    1)
+        LLVM="1"
+        ;;
+esac
+
+if [[ "${KERNEL_DEBUG}" != "0" && "${KERNEL_DEBUG}" != "1" ]]; then
+    echo "Unsupported KERNEL_DEBUG='${KERNEL_DEBUG}'. Use 0 or 1." >&2
     exit 1
 fi
 
@@ -158,8 +179,17 @@ if [[ "${ENSURE_BUILD_DEPS:-1}" != "0" ]]; then
     if [[ "${MENUCONFIG}" -eq 1 ]]; then
         ensure_args+=(--menuconfig)
     fi
+    if [[ "${KERNEL_DEBUG}" -eq 1 ]]; then
+        ensure_args+=(--kernel-debug)
+    fi
 
     "${PYTHON_BIN}" "${ensure_args[@]}"
+fi
+
+if [[ "${KERNEL_DEBUG}" -eq 1 ]] && ! command -v "${BEAR_BIN}" >/dev/null 2>&1; then
+    echo "Missing required command: ${BEAR_BIN}" >&2
+    echo "Install bear, or set KERNEL_DEBUG=0 to skip compile_commands.json capture." >&2
+    exit 1
 fi
 
 mkdir -p "${OUT_DIR}"
@@ -200,25 +230,117 @@ if [[ -n "${LLVM}" ]]; then
     MAKE_ARGS+=(LLVM="${LLVM}")
 fi
 
-run_make() {
-    local -a env_cmd=(env)
+build_make_cmd() {
+    local -n cmd_ref="$1"
+    shift
+
+    cmd_ref=(env)
 
     # Empty exported vars override kernel defaults (e.g. OBJCOPY ?= ...),
-    # so drop them from the environment when they are blank.
+    # so drop them from the environment when they are blank. Also discard
+    # outer GNU make override state because this script passes the intended
+    # values explicitly and Kbuild may reject leaked command-line values.
+    cmd_ref+=(-u MAKEFLAGS -u MAKEOVERRIDES -u MFLAGS)
     if [[ -z "${CROSS_COMPILE}" ]]; then
-        env_cmd+=(-u CROSS_COMPILE)
+        cmd_ref+=(-u CROSS_COMPILE)
     fi
     if [[ -z "${OBJCOPY}" ]]; then
-        env_cmd+=(-u OBJCOPY)
+        cmd_ref+=(-u OBJCOPY)
     fi
     if [[ -z "${NM}" ]]; then
-        env_cmd+=(-u NM)
+        cmd_ref+=(-u NM)
     fi
     if [[ -z "${LLVM}" ]]; then
-        env_cmd+=(-u LLVM)
+        cmd_ref+=(-u LLVM)
     fi
 
-    "${env_cmd[@]}" make "${MAKE_ARGS[@]}" "$@"
+    cmd_ref+=(make "${MAKE_ARGS[@]}" "$@")
+}
+
+run_make() {
+    local -a cmd
+
+    build_make_cmd cmd "$@"
+    "${cmd[@]}"
+}
+
+publish_compile_commands() {
+    if [[ ! -f "${KERNEL_COMPDB_OUT}" ]]; then
+        echo "bear completed but did not produce ${KERNEL_COMPDB_OUT}" >&2
+        exit 1
+    fi
+
+    cp -f "${KERNEL_COMPDB_OUT}" "${KERNEL_COMPDB_LINK}"
+}
+
+compile_commands_has_entries() {
+    "${PYTHON_BIN}" - "${KERNEL_COMPDB_OUT}" <<'PY'
+import json
+import sys
+
+with open(sys.argv[1], encoding="utf-8") as fh:
+    data = json.load(fh)
+
+sys.exit(0 if isinstance(data, list) and len(data) > 0 else 1)
+PY
+}
+
+bear_runtime_is_available() {
+    "${PYTHON_BIN}" - <<'PY'
+import socket
+import sys
+
+try:
+    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try:
+        sock.bind(("127.0.0.1", 0))
+    finally:
+        sock.close()
+except OSError:
+    sys.exit(1)
+PY
+}
+
+refresh_compile_commands_with_kernel_make() {
+    echo "Falling back to kernel compile_commands.json generation." >&2
+    run_make compile_commands.json
+    publish_compile_commands
+}
+
+run_kernel_build() {
+    local -a cmd
+    local -a bear_args=(--output "${KERNEL_COMPDB_OUT}")
+
+    build_make_cmd cmd "$@"
+
+    if [[ "${KERNEL_DEBUG}" -eq 0 ]]; then
+        "${cmd[@]}"
+        return
+    fi
+
+    if ! bear_runtime_is_available; then
+        echo "bear cannot open its local capture socket in this environment." >&2
+        "${cmd[@]}"
+        refresh_compile_commands_with_kernel_make
+        return
+    fi
+
+    rm -f "${KERNEL_COMPDB_OUT}"
+
+    if ! "${BEAR_BIN}" "${bear_args[@]}" -- "${cmd[@]}"; then
+        echo "bear capture failed; retrying with the kernel compile_commands.json target." >&2
+        "${cmd[@]}"
+        refresh_compile_commands_with_kernel_make
+        return
+    fi
+
+    if ! compile_commands_has_entries; then
+        echo "bear completed but captured no compile commands; regenerating via kernel make." >&2
+        refresh_compile_commands_with_kernel_make
+        return
+    fi
+
+    publish_compile_commands
 }
 
 if [[ "${FORCE_DEFCONFIG}" -eq 1 || ! -f "${OUT_DIR}/.config" ]]; then
@@ -231,7 +353,14 @@ if [[ "${MENUCONFIG}" -eq 1 ]]; then
     run_make menuconfig
 fi
 
-run_make -j"${JOBS}" "${KERNEL_TARGET}"
+kernel_build_args=(-j"${JOBS}" "${KERNEL_TARGET}")
+
+run_kernel_build "${kernel_build_args[@]}"
 
 echo "Kernel built successfully:"
 echo "  ${OUT_DIR}/${KERNEL_IMAGE_REL}"
+if [[ "${KERNEL_DEBUG}" -eq 1 ]]; then
+    echo "Compilation database refreshed:"
+    echo "  ${KERNEL_COMPDB_OUT}"
+    echo "  ${KERNEL_COMPDB_LINK}"
+fi

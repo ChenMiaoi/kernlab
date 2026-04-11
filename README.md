@@ -55,27 +55,30 @@ git submodule update --init --recursive --depth 1 qemu
 也可以手动先跑一次：
 
 ```bash
-python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --arch x86_64
-python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --arch riscv
+python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --arch x86_64 --llvm --kernel-debug
+python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --arch riscv --llvm --kernel-debug
 ```
 
 如果只想检查、不安装：
 
 ```bash
-python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only
+python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only --llvm --kernel-debug
 ```
 
 如果你不想在构建时自动安装依赖，可以设置 `ENSURE_BUILD_DEPS=0`。
 
 QEMU 不再通过系统包管理器安装二进制，而是使用仓库内 `qemu/` submodule 从源码构建到 `out/qemu/$ARCH/`。
+Linux 内核构建默认使用 LLVM/Clang 工具链；如需切回 GCC/binutils，可设置 `LLVM=0`。
+Linux 内核构建默认开启开发者调试模式：会优先通过 `bear` 录制编译命令，并刷新仓库根目录的 `compile_commands.json`，方便 `clangd` 直接索引 `linux/` 源码。
+如果你只想正常编译、不生成编译数据库，可以设置 `KERNEL_DEBUG=0`。
 
 下面仍保留 Debian/Ubuntu 的手动安装示例（这些是构建依赖，不包含 QEMU 二进制包）：
 
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-  build-essential perl bc bison flex libelf-dev libssl-dev file binutils \
-  cpio gzip busybox clang lld python3 python3-venv ninja-build pkg-config \
+  build-essential perl bc bison flex libelf-dev libssl-dev file binutils bear clang lld llvm \
+  cpio gzip busybox python3 python3-venv ninja-build pkg-config \
   libglib2.0-dev libpixman-1-dev zlib1g-dev
 ```
 
@@ -131,7 +134,8 @@ make clean ARCH=riscv
 - `ARCH`: `x86_64|arm|arm64|riscv`
 - `JOBS`: 并行编译线程数
 - `CROSS_COMPILE`: 交叉工具链前缀（为空时自动探测）
-- `LLVM`: 设为 `1` 时使用 clang 工具链
+- `LLVM`: `1|0`（默认 `1`；`0` 时改回 GCC/binutils）
+- `KERNEL_DEBUG`: `1|0`（默认 `1`，使用 `bear` 生成/刷新 `compile_commands.json`）
 - `BUSYBOX_BIN`: 指定 BusyBox 二进制路径（默认自动探测）
 - `BUSYBOX_STATIC`: `auto|1|0`（`auto`=跨架构静态、本机架构动态）
 - `QEMU_DIR`: QEMU 源码目录（默认 `qemu/`）
@@ -154,6 +158,8 @@ make run ARCH=arm64 QEMU_ARGS="-s -S"
 ## 输出目录
 
 - 内核：`out/$ARCH/...`
+- 内核编译数据库：`out/$ARCH/compile_commands.json`
+- clangd 入口：`compile_commands.json`
 - BusyBox：`out/busybox/$ARCH/busybox`
 - QEMU：`out/qemu/$ARCH/qemu-system-*`
 - initramfs：`out/initramfs/$ARCH/initramfs.cpio.gz`

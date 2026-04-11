@@ -10,10 +10,12 @@
 如果你只想先检查：
 
 ```bash
-python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only
+python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only --llvm --kernel-debug
 ```
 
 如果你不想在构建时自动安装依赖，可设置 `ENSURE_BUILD_DEPS=0`。
+默认内核构建会使用 LLVM/Clang 工具链；如需切回 GCC/binutils，可设置 `LLVM=0`。
+默认内核构建还会优先通过 `bear` 刷新仓库根目录的 `compile_commands.json`，方便 `clangd` 索引 `linux/` 源码；如不需要可设置 `KERNEL_DEBUG=0`。
 
 QEMU 不再通过系统包管理器安装二进制，而是使用仓库内 `qemu/` submodule 从源码构建。
 
@@ -22,7 +24,7 @@ QEMU 不再通过系统包管理器安装二进制，而是使用仓库内 `qemu
 ```bash
 sudo apt-get update
 sudo apt-get install -y \
-  build-essential perl bc bison flex libelf-dev libssl-dev file binutils \
+  build-essential perl bc bison flex libelf-dev libssl-dev file binutils bear clang lld llvm \
   cpio gzip busybox python3 python3-venv ninja-build pkg-config \
   libglib2.0-dev libpixman-1-dev zlib1g-dev
 ```

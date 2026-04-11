@@ -195,6 +195,13 @@ PACKAGE_CANDIDATES = {
         "zypper": [["clang"]],
         "apk": [["clang"]],
     },
+    "bear": {
+        "apt-get": [["bear"]],
+        "dnf": [["bear"]],
+        "yum": [["bear"]],
+        "pacman": [["bear"]],
+        "zypper": [["bear"]],
+    },
     "lld": {
         "apt-get": [["lld"]],
         "dnf": [["lld"]],
@@ -347,6 +354,7 @@ class Context:
     cross_compile: str
     llvm: bool
     menuconfig: bool
+    kernel_debug: bool
     busybox_static: str
     package_manager: str
 
@@ -587,6 +595,8 @@ def build_requirements(ctx: Context) -> list[Requirement]:
             )
         else:
             requirements.append(cross_gcc_requirement())
+        if ctx.kernel_debug:
+            requirements.append(command_requirement("bear", "bear", "bear"))
 
     if "busybox" in ctx.components:
         requirements.extend(
@@ -758,6 +768,11 @@ def parse_args() -> argparse.Namespace:
         help="Also prepare menuconfig ncurses headers.",
     )
     parser.add_argument(
+        "--kernel-debug",
+        action="store_true",
+        help="Kernel build also needs bear to refresh compile_commands.json for clangd.",
+    )
+    parser.add_argument(
         "--busybox-static",
         default=os.environ.get("BUSYBOX_STATIC", "auto"),
         choices=("auto", "0", "1"),
@@ -808,6 +823,7 @@ def main() -> int:
         cross_compile=args.cross_compile,
         llvm=args.llvm,
         menuconfig=args.menuconfig,
+        kernel_debug=args.kernel_debug,
         busybox_static=busybox_static,
         package_manager=package_manager,
     )
