@@ -2,7 +2,15 @@ name: CI
 
 on:
   push:
+    paths-ignore:
+      - 'docs/**'
+      - 'research/**'
+      - '**/*.md'
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - 'research/**'
+      - '**/*.md'
   workflow_dispatch:
 
 concurrency:
@@ -23,6 +31,33 @@ jobs:
 
       - name: Install dependencies
         run: make -C ci install-deps
+
+      - name: Compute cache keys
+        id: cache-keys
+        run: |
+          set -euo pipefail
+          echo "toolchain=$(./ci/cache-key.sh toolchain)" >> "${GITHUB_OUTPUT}"
+          echo "build=$(./ci/cache-key.sh build)" >> "${GITHUB_OUTPUT}"
+          echo "qemu=$(./ci/cache-key.sh qemu)" >> "${GITHUB_OUTPUT}"
+
+      - name: Restore build cache
+        uses: actions/cache@v4
+        with:
+          path: |
+            out/x86_64
+            out/busybox/x86_64
+            out/initramfs/x86_64
+          key: ${{ runner.os }}-build-x86_64-${{ steps.cache-keys.outputs.toolchain }}-${{ steps.cache-keys.outputs.build }}
+          restore-keys: |
+            ${{ runner.os }}-build-x86_64-${{ steps.cache-keys.outputs.toolchain }}-
+
+      - name: Restore QEMU cache
+        uses: actions/cache@v4
+        with:
+          path: out/qemu/x86_64
+          key: ${{ runner.os }}-qemu-x86_64-${{ steps.cache-keys.outputs.toolchain }}-${{ steps.cache-keys.outputs.qemu }}
+          restore-keys: |
+            ${{ runner.os }}-qemu-x86_64-${{ steps.cache-keys.outputs.toolchain }}-
 
       - name: Run CI scripts
         run: |

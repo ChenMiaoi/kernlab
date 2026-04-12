@@ -16,6 +16,7 @@ fi
 OUT_DIR="${OUT_DIR:-${REPO_DIR}/out/${ARCH}}"
 INITRAMFS_DIR="${INITRAMFS_DIR:-${REPO_DIR}/out/initramfs/${ARCH}}"
 JOBS="${JOBS:-$(nproc)}"
+KERNEL_DEBUG="${KERNEL_DEBUG:-0}"
 
 MAKE_ARGS=(
     -C "${REPO_DIR}"
@@ -25,6 +26,7 @@ MAKE_ARGS=(
     OUT_DIR="${OUT_DIR}"
     INITRAMFS_DIR="${INITRAMFS_DIR}"
     JOBS="${JOBS}"
+    KERNEL_DEBUG="${KERNEL_DEBUG}"
 )
 if [[ -n "${CROSS_COMPILE:-}" ]]; then
     MAKE_ARGS+=(CROSS_COMPILE="${CROSS_COMPILE}")

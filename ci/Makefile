@@ -3,6 +3,7 @@ SHELL := /usr/bin/env bash
 ARCH ?= x86_64
 JOBS ?= $(shell nproc)
 CI_QEMU_TIMEOUT ?= 600
+KERNEL_DEBUG ?= 0
 
 CROSS_COMPILE ?=
 OBJCOPY ?=
@@ -29,13 +30,14 @@ help:
 	@echo "  ARCH=$(ARCH)"
 	@echo "  JOBS=$(JOBS)"
 	@echo "  CI_QEMU_TIMEOUT=$(CI_QEMU_TIMEOUT)"
+	@echo "  KERNEL_DEBUG=$(KERNEL_DEBUG)"
 	@echo "  QEMU_ARGS=$(QEMU_ARGS)"
 
 install-deps:
 	@./install-deps-ubuntu.sh
 
 run:
-	@ARCH="$(ARCH)" JOBS="$(JOBS)" CI_QEMU_TIMEOUT="$(CI_QEMU_TIMEOUT)" \
+	@ARCH="$(ARCH)" JOBS="$(JOBS)" CI_QEMU_TIMEOUT="$(CI_QEMU_TIMEOUT)" KERNEL_DEBUG="$(KERNEL_DEBUG)" \
 		CROSS_COMPILE="$(CROSS_COMPILE)" OBJCOPY="$(OBJCOPY)" NM="$(NM)" LLVM="$(LLVM)" \
 		BUSYBOX_BIN="$(BUSYBOX_BIN)" BUSYBOX_DIR="$(BUSYBOX_DIR)" \
 		BUSYBOX_OUT_DIR="$(BUSYBOX_OUT_DIR)" BUSYBOX_STATIC="$(BUSYBOX_STATIC)" \
