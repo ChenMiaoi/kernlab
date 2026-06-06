@@ -1,5 +1,8 @@
 SHELL := /usr/bin/env bash
 
+REPO_DIR := $(CURDIR)
+-include $(REPO_DIR)/qemu-linux.mk
+
 ARCH ?= x86_64
 ARCH_CANON := $(ARCH)
 ifneq ($(filter $(ARCH_CANON),amd64),)
@@ -15,6 +18,9 @@ ifneq ($(filter $(ARCH_CANON),riscv64),)
 ARCH_CANON := riscv
 endif
 JOBS ?= $(shell nproc)
+LINUX_DIR ?= $(REPO_DIR)/linux
+DEFCONFIG ?=
+KERNEL_TARGET ?=
 CROSS_COMPILE ?=
 OBJCOPY ?=
 NM ?=
@@ -24,6 +30,7 @@ BUSYBOX_OUT_DIR ?= $(REPO_DIR)/out/busybox/$(ARCH_CANON)
 BUSYBOX_STATIC ?= auto
 QEMU_DIR ?= $(REPO_DIR)/qemu
 QEMU_BUILD_DIR ?= $(REPO_DIR)/out/qemu/$(ARCH_CANON)
+QEMU_BIN ?=
 LLVM ?= 1
 KERNEL_DEBUG ?= 1
 BEAR_BIN ?= bear
@@ -31,7 +38,6 @@ ENSURE_BUILD_DEPS ?= 1
 PYTHON_BIN ?= python3
 .DEFAULT_GOAL := x86
 
-REPO_DIR := $(CURDIR)
 SCRIPTS_DIR := $(REPO_DIR)/scripts
 
 OUT_DIR ?= $(REPO_DIR)/out/$(ARCH)
@@ -45,6 +51,8 @@ BUILD_AND_RUN_QEMU_SH := $(SCRIPTS_DIR)/build-and-run-qemu.sh
 RUN_QEMU_SH := $(SCRIPTS_DIR)/run-qemu.sh
 
 QEMU_ARGS ?=
+MEMORY ?=
+SMP ?=
 KERNEL_CMDLINE ?=
 CROSS_ARCH_ALIASES := arm arm32 arm64 aarch64 aarch riscv riscv64
 
@@ -69,18 +77,25 @@ help:
 	@echo "  make build-and-run  Build + run via scripts/build-and-run-qemu.sh"
 	@echo "  make clean          Remove out/\$$ARCH, out/initramfs/\$$ARCH, out/busybox/\$$ARCH, out/qemu/\$$ARCH, compile_commands.json"
 	@echo ""
+	@echo "Config file:"
+	@echo "  qemu-linux.mk      Edit checked-in defaults; command-line variables still override"
+	@echo ""
 	@echo "Common variables:"
 	@echo "  ARCH=$(ARCH)  # x86_64|arm|arm64|riscv"
 	@echo "  JOBS=$(JOBS)"
 	@echo "  CROSS_COMPILE=$(CROSS_COMPILE)  # empty: auto-detect for arm/arm64/riscv"
 	@echo "  OBJCOPY=$(OBJCOPY)  # empty: riscv defaults to llvm-objcopy when available"
 	@echo "  NM=$(NM)            # empty: riscv defaults to llvm-nm when available"
+	@echo "  LINUX_DIR=$(LINUX_DIR)"
+	@echo "  DEFCONFIG=$(DEFCONFIG)  # empty means per-arch default"
+	@echo "  KERNEL_TARGET=$(KERNEL_TARGET)  # empty means per-arch default"
 	@echo "  BUSYBOX_BIN=$(BUSYBOX_BIN)  # empty: auto-detect per ARCH; cross-arch needs target busybox"
 	@echo "  BUSYBOX_DIR=$(BUSYBOX_DIR)"
 	@echo "  BUSYBOX_OUT_DIR=$(BUSYBOX_OUT_DIR)"
 	@echo "  BUSYBOX_STATIC=$(BUSYBOX_STATIC)  # auto: cross=static, native=dynamic"
 	@echo "  QEMU_DIR=$(QEMU_DIR)"
 	@echo "  QEMU_BUILD_DIR=$(QEMU_BUILD_DIR)"
+	@echo "  QEMU_BIN=$(QEMU_BIN)  # empty: auto-detect qemu-system-*"
 	@echo "  LLVM=$(LLVM)  # 1: use clang/lld by default; 0: use GCC/binutils"
 	@echo "  KERNEL_DEBUG=$(KERNEL_DEBUG)  # 1: generate compile_commands.json via bear"
 	@echo "  BEAR_BIN=$(BEAR_BIN)"
@@ -88,11 +103,13 @@ help:
 	@echo "  PYTHON_BIN=$(PYTHON_BIN)"
 	@echo "  OUT_DIR=$(OUT_DIR)"
 	@echo "  INITRAMFS_DIR=$(INITRAMFS_DIR)"
+	@echo "  MEMORY=$(MEMORY)  # empty means per-arch default"
+	@echo "  SMP=$(SMP)        # empty means per-arch default"
 	@echo "  KERNEL_CMDLINE=$(KERNEL_CMDLINE)  # empty means per-arch default"
 	@echo "  QEMU_ARGS=$(QEMU_ARGS)"
 
 kernel:
-	@ARCH="$(ARCH)" OUT_DIR="$(OUT_DIR)" JOBS="$(JOBS)" \
+	@ARCH="$(ARCH)" LINUX_DIR="$(LINUX_DIR)" OUT_DIR="$(OUT_DIR)" DEFCONFIG="$(DEFCONFIG)" KERNEL_TARGET="$(KERNEL_TARGET)" JOBS="$(JOBS)" \
 		CROSS_COMPILE="$(CROSS_COMPILE)" OBJCOPY="$(OBJCOPY)" NM="$(NM)" LLVM="$(LLVM)" KERNEL_DEBUG="$(KERNEL_DEBUG)" BEAR_BIN="$(BEAR_BIN)" \
 		ENSURE_BUILD_DEPS="$(ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)" \
 		"$(BUILD_KERNEL_SH)"
@@ -109,13 +126,14 @@ qemu:
 		"$(BUILD_QEMU_SH)"
 
 menuconfig:
-	@ARCH="$(ARCH)" OUT_DIR="$(OUT_DIR)" JOBS="$(JOBS)" \
+	@ARCH="$(ARCH)" LINUX_DIR="$(LINUX_DIR)" OUT_DIR="$(OUT_DIR)" DEFCONFIG="$(DEFCONFIG)" KERNEL_TARGET="$(KERNEL_TARGET)" JOBS="$(JOBS)" \
 		CROSS_COMPILE="$(CROSS_COMPILE)" OBJCOPY="$(OBJCOPY)" NM="$(NM)" LLVM="$(LLVM)" KERNEL_DEBUG="$(KERNEL_DEBUG)" BEAR_BIN="$(BEAR_BIN)" \
 		ENSURE_BUILD_DEPS="$(ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)" \
 		"$(BUILD_KERNEL_SH)" --menuconfig
 
 initramfs:
 	@ARCH="$(ARCH)" INITRAMFS_DIR="$(INITRAMFS_DIR)" BUSYBOX_BIN="$(BUSYBOX_BIN)" \
+		INITRAMFS_HOSTNAME="$(INITRAMFS_HOSTNAME)" INITRAMFS_BANNER="$(INITRAMFS_BANNER)" INITRAMFS_EXTRA_DIR="$(INITRAMFS_EXTRA_DIR)" \
 		ENSURE_BUILD_DEPS="$(ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)" \
 		"$(BUILD_INITRAMFS_SH)"
 
@@ -123,11 +141,16 @@ ALL_DEPS := kernel busybox initramfs
 
 all: $(ALL_DEPS)
 
-run: all qemu
+RUN_DEPS := all
+ifeq ($(strip $(QEMU_BIN)),)
+RUN_DEPS += qemu
+endif
+
+run: $(RUN_DEPS)
 	@ARCH="$(ARCH)" OUT_DIR="$(OUT_DIR)" INITRAMFS_DIR="$(INITRAMFS_DIR)" \
-		QEMU_DIR="$(QEMU_DIR)" QEMU_BUILD_DIR="$(QEMU_BUILD_DIR)" \
+		QEMU_DIR="$(QEMU_DIR)" QEMU_BUILD_DIR="$(QEMU_BUILD_DIR)" QEMU_BIN="$(QEMU_BIN)" \
 		ENSURE_BUILD_DEPS="$(ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)" \
-		KERNEL_CMDLINE="$(KERNEL_CMDLINE)" \
+		MEMORY="$(MEMORY)" SMP="$(SMP)" KERNEL_CMDLINE="$(KERNEL_CMDLINE)" \
 		"$(RUN_QEMU_SH)" $(QEMU_ARGS)
 
 x86 x86_64:
@@ -146,13 +169,14 @@ build-and-run:
 	@bb_bin="$(BUSYBOX_BIN)"; \
 	if [[ -z "$$bb_bin" || ! -x "$$bb_bin" ]]; then \
 		bb_bin="$(BUSYBOX_OUT_DIR)/busybox"; \
-		$(MAKE) busybox ARCH="$(ARCH)" CROSS_COMPILE="$(CROSS_COMPILE)" JOBS="$(JOBS)" BUSYBOX_STATIC="$(BUSYBOX_STATIC)" ENSURE_BUILD_DEPS="$(ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)"; \
+		$(MAKE) busybox ARCH="$(ARCH)" BUSYBOX_DIR="$(BUSYBOX_DIR)" BUSYBOX_OUT_DIR="$(BUSYBOX_OUT_DIR)" CROSS_COMPILE="$(CROSS_COMPILE)" JOBS="$(JOBS)" BUSYBOX_STATIC="$(BUSYBOX_STATIC)" ENSURE_BUILD_DEPS="$(ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)"; \
 	fi; \
-	ARCH="$(ARCH)" OUT_DIR="$(OUT_DIR)" INITRAMFS_DIR="$(INITRAMFS_DIR)" \
+	ARCH="$(ARCH)" LINUX_DIR="$(LINUX_DIR)" OUT_DIR="$(OUT_DIR)" DEFCONFIG="$(DEFCONFIG)" KERNEL_TARGET="$(KERNEL_TARGET)" INITRAMFS_DIR="$(INITRAMFS_DIR)" \
 		JOBS="$(JOBS)" CROSS_COMPILE="$(CROSS_COMPILE)" OBJCOPY="$(OBJCOPY)" NM="$(NM)" BUSYBOX_BIN="$$bb_bin" LLVM="$(LLVM)" KERNEL_DEBUG="$(KERNEL_DEBUG)" BEAR_BIN="$(BEAR_BIN)" \
-		QEMU_DIR="$(QEMU_DIR)" QEMU_BUILD_DIR="$(QEMU_BUILD_DIR)" \
+		INITRAMFS_HOSTNAME="$(INITRAMFS_HOSTNAME)" INITRAMFS_BANNER="$(INITRAMFS_BANNER)" INITRAMFS_EXTRA_DIR="$(INITRAMFS_EXTRA_DIR)" \
+		QEMU_DIR="$(QEMU_DIR)" QEMU_BUILD_DIR="$(QEMU_BUILD_DIR)" QEMU_BIN="$(QEMU_BIN)" \
 		ENSURE_BUILD_DEPS="$(ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)" \
-		KERNEL_CMDLINE="$(KERNEL_CMDLINE)" \
+		MEMORY="$(MEMORY)" SMP="$(SMP)" KERNEL_CMDLINE="$(KERNEL_CMDLINE)" \
 		"$(BUILD_AND_RUN_QEMU_SH)" $(QEMU_ARGS)
 
 clean:

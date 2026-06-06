@@ -12,7 +12,10 @@ Environment variables:
   INITRAMFS_DIR   Initramfs output dir (default: <repo>/out/initramfs/<arch>)
   ROOTFS_DIR      Staging rootfs dir (default: <INITRAMFS_DIR>/rootfs)
   INITRAMFS_IMAGE Output archive path (default: <INITRAMFS_DIR>/initramfs.cpio.gz)
-  BUSYBOX_BIN     Busybox binary path (default: auto-detect per ARCH)
+  BUSYBOX_BIN       Busybox binary path (default: auto-detect per ARCH)
+  INITRAMFS_HOSTNAME Optional /etc/hostname content (default: none)
+  INITRAMFS_BANNER   Boot banner printed by init scripts (default: == custom kernel booted ==)
+  INITRAMFS_EXTRA_DIR Optional rootfs overlay copied before packing
 EOF
 }
 
@@ -154,8 +157,16 @@ INITRAMFS_DIR="${INITRAMFS_DIR:-${REPO_DIR}/out/initramfs/${ARCH}}"
 ROOTFS_DIR="${ROOTFS_DIR:-${INITRAMFS_DIR}/rootfs}"
 INITRAMFS_IMAGE="${INITRAMFS_IMAGE:-${INITRAMFS_DIR}/initramfs.cpio.gz}"
 BUSYBOX_BIN="${BUSYBOX_BIN:-}"
+INITRAMFS_HOSTNAME="${INITRAMFS_HOSTNAME:-}"
+INITRAMFS_BANNER="${INITRAMFS_BANNER:-== custom kernel booted ==}"
+INITRAMFS_EXTRA_DIR="${INITRAMFS_EXTRA_DIR:-}"
 HOST_ARCH="$(normalize_arch "$(uname -m)" 2>/dev/null || true)"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
+
+if [[ -n "${INITRAMFS_EXTRA_DIR}" && ! -d "${INITRAMFS_EXTRA_DIR}" ]]; then
+    echo "INITRAMFS_EXTRA_DIR does not exist or is not a directory: ${INITRAMFS_EXTRA_DIR}" >&2
+    exit 1
+fi
 
 if [[ "${ENSURE_BUILD_DEPS:-1}" != "0" ]]; then
     if ! command -v "${PYTHON_BIN}" >/dev/null 2>&1; then
@@ -209,16 +220,23 @@ if [[ "${ARCH}" != "${HOST_ARCH}" ]] && ! is_static_elf "${BUSYBOX_BIN}"; then
     exit 1
 fi
 
+
 rm -rf "${ROOTFS_DIR}"
 mkdir -p "${ROOTFS_DIR}"/{bin,sbin,etc/init.d,proc,sys,dev,tmp,usr/bin,usr/sbin,run}
 
 cp -L "${BUSYBOX_BIN}" "${ROOTFS_DIR}/bin/busybox"
 chmod 0755 "${ROOTFS_DIR}/bin/busybox"
 
-for applet in sh mount umount cat echo ls dmesg poweroff reboot uname setsid cttyhack; do
+for applet in sh mount umount cat echo ls dmesg poweroff reboot uname setsid cttyhack hostname; do
     ln -sf /bin/busybox "${ROOTFS_DIR}/bin/${applet}"
 done
 ln -sf /bin/busybox "${ROOTFS_DIR}/sbin/init"
+
+if [[ -n "${INITRAMFS_HOSTNAME}" ]]; then
+    printf '%s\n' "${INITRAMFS_HOSTNAME}" > "${ROOTFS_DIR}/etc/hostname"
+fi
+printf '%s\n' "${INITRAMFS_BANNER}" > "${ROOTFS_DIR}/etc/banner"
+
 
 cat > "${ROOTFS_DIR}/etc/inittab" <<'EOF'
 ::sysinit:/etc/init.d/rcS
@@ -240,7 +258,8 @@ exec /bin/sh
 EOF
 chmod 0755 "${ROOTFS_DIR}/etc/init.d/console-login"
 
-cat > "${ROOTFS_DIR}/etc/init.d/rcS" <<'EOF'
+{
+    cat <<'EOF'
 #!/bin/sh
 set -eu
 
@@ -248,14 +267,26 @@ mount -t devtmpfs devtmpfs /dev
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 
-echo "== custom kernel booted =="
+EOF
+    if [[ -n "${INITRAMFS_HOSTNAME}" ]]; then
+        cat <<'EOF'
+if [ -r /etc/hostname ] && command -v hostname >/dev/null 2>&1; then
+    hostname "$(cat /etc/hostname)"
+fi
+
+EOF
+    fi
+    printf '%s\n' 'cat /etc/banner'
+    cat <<'EOF'
 echo "kernel: $(uname -a)"
 echo "console: /dev/console"
 echo "type 'reboot -f' to quit QEMU"
 EOF
+} > "${ROOTFS_DIR}/etc/init.d/rcS"
 chmod 0755 "${ROOTFS_DIR}/etc/init.d/rcS"
 
-cat > "${ROOTFS_DIR}/init" <<'EOF'
+{
+    cat <<'EOF'
 #!/bin/sh
 set -eu
 
@@ -268,7 +299,17 @@ mount -t devtmpfs devtmpfs /dev
 mount -t proc proc /proc
 mount -t sysfs sysfs /sys
 
-echo "== custom kernel booted =="
+EOF
+    if [[ -n "${INITRAMFS_HOSTNAME}" ]]; then
+        cat <<'EOF'
+if [ -r /etc/hostname ] && command -v hostname >/dev/null 2>&1; then
+    hostname "$(cat /etc/hostname)"
+fi
+
+EOF
+    fi
+    printf '%s\n' 'cat /etc/banner'
+    cat <<'EOF'
 echo "kernel: $(uname -a)"
 echo "type 'reboot -f' to quit QEMU"
 
@@ -279,6 +320,7 @@ fi
 
 exec /bin/sh </dev/console >/dev/console 2>&1
 EOF
+} > "${ROOTFS_DIR}/init"
 chmod 0755 "${ROOTFS_DIR}/init"
 
 if ! is_static_elf "${BUSYBOX_BIN}"; then
@@ -300,6 +342,10 @@ if ! is_static_elf "${BUSYBOX_BIN}"; then
         done < "${LDD_OUT}"
     fi
 fi
+if [[ -n "${INITRAMFS_EXTRA_DIR}" ]]; then
+    cp -a "${INITRAMFS_EXTRA_DIR}/." "${ROOTFS_DIR}/"
+fi
+
 
 mkdir -p "$(dirname "${INITRAMFS_IMAGE}")"
 (
