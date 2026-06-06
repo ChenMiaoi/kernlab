@@ -7,7 +7,7 @@ usage() {
     cat <<EOF
 Usage: init-template.sh
 
-Prepare an existing qemu-kernel-lab checkout for 'make run'. Safe to run repeatedly.
+Prepare an existing kernlab checkout for 'make run'. Safe to run repeatedly.
 
 Environment variables:
   REPO_DIR          Repository root override (default: parent of this script)
@@ -51,7 +51,7 @@ if [[ ! -d "${REPO_DIR}" ]]; then
 fi
 
 if [[ ! -f "${REPO_DIR}/qemu-linux.mk" || ! -f "${REPO_DIR}/.gitmodules" ]]; then
-    echo "Not a qemu-kernel-lab repository root: ${REPO_DIR}" >&2
+    echo "Not a kernlab repository root: ${REPO_DIR}" >&2
     echo "Set REPO_DIR to the checkout root and retry." >&2
     exit 1
 fi

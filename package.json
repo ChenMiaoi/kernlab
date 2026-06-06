@@ -1,10 +1,10 @@
 {
-  "name": "create-qemu-kernel-lab",
+  "name": "create-kernlab",
   "version": "0.1.0",
   "description": "Create a Linux-first QEMU kernel development workspace.",
   "type": "commonjs",
   "bin": {
-    "create-qemu-kernel-lab": "bin/create-qemu-kernel-lab.js"
+    "create-kernlab": "bin/create-kernlab.js"
   },
   "files": [
     "bin/",
@@ -17,11 +17,11 @@
     "README.md"
   ],
   "scripts": {
-    "test": "node bin/create-qemu-kernel-lab.js --help && node bin/create-qemu-kernel-lab.js --dry-run --dir /tmp/qemu-kernel-lab-dry-run"
+    "test": "node bin/create-kernlab.js --help && node bin/create-kernlab.js --dry-run --dir /tmp/kernlab-dry-run"
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/ChenMiaoi/qemu-kernel-lab.git"
+    "url": "git+https://github.com/ChenMiaoi/kernlab.git"
   },
   "keywords": [
     "linux",
