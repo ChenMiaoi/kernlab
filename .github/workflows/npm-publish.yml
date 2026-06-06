@@ -1,0 +1,46 @@
+name: Publish NPM
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: npm-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish create-kernlab
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Verify tag matches package version
+        run: |
+          set -euo pipefail
+          package_version="$(node -p "require('./package.json').version")"
+          tag_version="${GITHUB_REF_NAME#v}"
+          if [[ "${package_version}" != "${tag_version}" ]]; then
+            echo "Tag v${tag_version} does not match package.json ${package_version}" >&2
+            exit 1
+          fi
+
+      - name: Test package
+        run: npm test
+
+      - name: Publish package
+        run: npm publish --provenance --access public
