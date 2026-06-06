@@ -8,7 +8,6 @@
 
 ```bash
 npx create-kernlab
-cd kernlab
 $EDITOR linux/          # 主要编辑区：Linux 内核源码
 $EDITOR qemu-linux.mk   # 可选：构建/运行配置
 make run
@@ -20,21 +19,21 @@ make run
 npm create kernlab@latest
 ```
 
-默认结构：
+默认会把当前目录初始化为工作区顶层：
 
 ```text
-kernlab/
+./
   linux/              # 用户主要编辑的 Linux 源码树
   .kernlab/   # 模板、脚本、BusyBox、QEMU；通常不编辑
   qemu-linux.mk       # 工作区本地配置
   Makefile            # 委托到模板；在工作区根目录运行 make run
 ```
 
-覆盖安装目录：
+如果想从别的位置创建工作区：
 
 ```bash
-npx create-kernlab ~/src/kernlab
-npx create-kernlab --dir ~/src/kernlab
+npx create-kernlab ~/src/my-kernel
+npx create-kernlab --dir ~/src/my-kernel
 ```
 
 使用已有 Linux checkout/fork：

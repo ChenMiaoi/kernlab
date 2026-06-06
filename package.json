@@ -1,6 +1,6 @@
 {
   "name": "create-kernlab",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Create a Linux-first QEMU kernel development workspace.",
   "type": "commonjs",
   "bin": {
