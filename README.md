@@ -1,4 +1,4 @@
-# my_linux
+# qemu-kernel-lab
 
 Linux-first QEMU workspace bootstrap for editing a local Linux source tree and validating it quickly with BusyBox + QEMU.
 
@@ -6,53 +6,63 @@ Linux-first QEMU workspace bootstrap for editing a local Linux source tree and v
 
 ## 快速开始
 
+推荐入口是 npm 初始化器，不依赖 GitHub raw URL：
+
 ```bash
-curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
-cd qemu-linux-workspace
+npx create-qemu-kernel-lab
+cd qemu-kernel-lab
 $EDITOR linux/          # 主要编辑区：Linux 内核源码
 $EDITOR qemu-linux.mk   # 可选：构建/运行配置
 make run
 ```
 
+也可以使用 npm create 形式：
+
+```bash
+npm create qemu-kernel-lab@latest
+```
+
 默认工作区结构：
 
 ```text
-qemu-linux-workspace/
-  linux/                 # 用户主要编辑的 Linux 源码树
-  .qemu-linux-template/  # 模板、脚本、BusyBox、QEMU；通常不编辑
-  qemu-linux.mk          # 工作区本地配置
-  Makefile               # 委托到模板；在工作区根目录运行 make run
+qemu-kernel-lab/
+  linux/              # 用户主要编辑的 Linux 源码树
+  .qemu-kernel-lab/   # 模板、脚本、BusyBox、QEMU；通常不编辑
+  qemu-linux.mk       # 工作区本地配置
+  Makefile            # 委托到模板；在工作区根目录运行 make run
 ```
 
-安装目录和模板来源都可以覆盖：
+安装目录可以作为位置参数或 `--dir` 传入：
 
 ```bash
-INSTALL_DIR=~/src/qemu-linux-workspace \
-  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
-
-REPO_URL=https://github.com/me/my_linux.git BRANCH=main INSTALL_DIR=~/src/qemu-linux-workspace \
-  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+npx create-qemu-kernel-lab ~/src/kernel-lab
+npx create-qemu-kernel-lab --dir ~/src/kernel-lab
 ```
 
 使用已有 Linux checkout/fork：
 
 ```bash
-LINUX_DIR=/home/me/src/linux \
-  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+npx create-qemu-kernel-lab --linux-dir /home/me/src/linux
 ```
 
 从指定 Linux fork/branch 克隆到工作区 `linux/`：
 
 ```bash
-LINUX_URL=https://github.com/me/linux.git LINUX_BRANCH=my-topic \
-  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+npx create-qemu-kernel-lab --linux-url https://github.com/me/linux.git --linux-branch my-topic
 ```
 
-如果你是在开发这个模板仓库本身，而不是创建用户工作区，使用本地初始化入口：
+如果 npm 包还没发布，或者你是在开发这个模板仓库本身，使用本地初始化入口：
 
 ```bash
+node ./bin/create-qemu-kernel-lab.js --help
 ./scripts/init-template.sh
 make init
+```
+
+curl 入口仍然保留给公开 GitHub 仓库使用：
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/qemu-kernel-lab/main/scripts/bootstrap.sh | bash
 ```
 
 `qemu-linux.mk` 是一等配置入口，使用 Make 语法和 `?=` 默认值。常见做法是在工作区根目录的 `qemu-linux.mk` 写入本地默认配置；临时覆盖仍然用命令行：
@@ -73,7 +83,7 @@ make run LINUX_DIR=/path/to/linux KERNEL_DEBUG=0
 - `Makefile`: 工作区 wrapper，保留 `make run`、`make kernel`、`make qemu` 等入口。
 - `out/`: 工作区构建输出。
 
-`.qemu-linux-template/` 是支持基础设施：
+`.qemu-kernel-lab/` 是支持基础设施：
 
 - `busybox/`: BusyBox 源码（submodule）。
 - `qemu/`: QEMU 源码（submodule）。
@@ -87,14 +97,14 @@ make run LINUX_DIR=/path/to/linux KERNEL_DEBUG=0
 - `scripts/build-and-run-qemu.sh`: 串联构建+启动。
 - `scripts/ensure-build-deps.py`: 构建依赖检查/自动安装脚本。
 
-通常只编辑工作区的 `linux/` 和 `qemu-linux.mk`。只有在开发模板功能时才进入 `.qemu-linux-template/`。
+通常只编辑工作区的 `linux/` 和 `qemu-linux.mk`。只有在开发模板功能时才进入 `.qemu-kernel-lab/`。
 
 ## 配置文件
 
 工作区生成的 `qemu-linux.mk` 会把 Linux、BusyBox、QEMU 和输出目录分开：
 
 ```make
-TEMPLATE_DIR := $(CURDIR)/.qemu-linux-template
+TEMPLATE_DIR := $(CURDIR)/.qemu-kernel-lab
 LINUX_DIR ?= $(CURDIR)/linux
 BUSYBOX_DIR ?= $(TEMPLATE_DIR)/busybox
 QEMU_DIR ?= $(TEMPLATE_DIR)/qemu
@@ -159,7 +169,7 @@ INITRAMFS_EXTRA_DIR ?= $(CURDIR)/rootfs-overlay
 手动检查示例：
 
 ```bash
-python3 .qemu-linux-template/scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only --llvm --kernel-debug
+python3 .qemu-kernel-lab/scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only --llvm --kernel-debug
 ```
 
 如果不想自动安装依赖：
@@ -186,6 +196,22 @@ sudo apt-get install -y \
   libc6-dev-armhf-cross libc6-dev-arm64-cross libc6-dev-riscv64-cross
 ```
 
+## 发布 npm 初始化器
+
+仓库已包含可发布包 `create-qemu-kernel-lab`。发布前先检查包内容：
+
+```bash
+npm pack --dry-run
+npm publish --access public
+```
+
+发布后用户可以直接运行：
+
+```bash
+npx create-qemu-kernel-lab@latest
+npm create qemu-kernel-lab@latest
+```
+
 ## 常用目标
 
 ```bash
@@ -205,32 +231,32 @@ make clean ARCH=riscv
 推荐入口是工作区根目录的 `make run`。如需直接跑脚本，脚本也接受同一组环境变量：
 
 ```bash
-ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-linux-template/scripts/build-and-run-qemu.sh
+ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-kernel-lab/scripts/build-and-run-qemu.sh
 ```
 
 分步执行：
 
 ```bash
-ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-linux-template/scripts/build-kernel.sh
-ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-linux-template/scripts/build-busybox.sh
-ARCH=riscv .qemu-linux-template/scripts/build-qemu.sh
-ARCH=riscv .qemu-linux-template/scripts/build-initramfs.sh
-ARCH=riscv .qemu-linux-template/scripts/run-qemu.sh
+ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-kernel-lab/scripts/build-kernel.sh
+ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-kernel-lab/scripts/build-busybox.sh
+ARCH=riscv .qemu-kernel-lab/scripts/build-qemu.sh
+ARCH=riscv .qemu-kernel-lab/scripts/build-initramfs.sh
+ARCH=riscv .qemu-kernel-lab/scripts/run-qemu.sh
 ```
 
 ## 输出目录
 
 - 内核：`out/$ARCH/...`
 - 内核编译数据库：`out/$ARCH/compile_commands.json`
-- clangd 入口：`.qemu-linux-template/compile_commands.json`
+- clangd 入口：`.qemu-kernel-lab/compile_commands.json`
 - BusyBox：`out/busybox/$ARCH/busybox`
 - QEMU：`out/qemu/$ARCH/qemu-system-*`
 - initramfs：`out/initramfs/$ARCH/initramfs.cpio.gz`
 
-手动初始化模板 submodule 通常只作为排障 fallback：
+手动刷新模板支持仓库通常只作为排障 fallback：
 
 ```bash
-make -C .qemu-linux-template init SUBMODULES="busybox qemu"
+make init
 ```
 
 ## 故障排查

@@ -1,0 +1,14 @@
+{
+  "linux": {
+    "url": "https://github.com/ChenMiaoi/linux.git",
+    "commit": "9a9c8ce300cd3859cc87b408ef552cd697cc2ab7"
+  },
+  "busybox": {
+    "url": "https://github.com/mirror/busybox.git",
+    "commit": "599f5dd8fac390c18b79cba4c14c334957605dae"
+  },
+  "qemu": {
+    "url": "https://gitlab.com/qemu-project/qemu.git",
+    "commit": "becd22fdc2a071783d9e04421526633772b3b98c"
+  }
+}

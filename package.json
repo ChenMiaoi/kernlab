@@ -1,0 +1,42 @@
+{
+  "name": "create-qemu-kernel-lab",
+  "version": "0.1.0",
+  "description": "Create a Linux-first QEMU kernel development workspace.",
+  "type": "commonjs",
+  "bin": {
+    "create-qemu-kernel-lab": "bin/create-qemu-kernel-lab.js"
+  },
+  "files": [
+    "bin/",
+    "package/submodules.json",
+    "Makefile",
+    "qemu-linux.mk",
+    ".gitmodules",
+    "scripts/",
+    "docs/",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node bin/create-qemu-kernel-lab.js --help && node bin/create-qemu-kernel-lab.js --dry-run --dir /tmp/qemu-kernel-lab-dry-run"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChenMiaoi/qemu-kernel-lab.git"
+  },
+  "keywords": [
+    "linux",
+    "kernel",
+    "qemu",
+    "busybox",
+    "initramfs",
+    "workspace"
+  ],
+  "author": "ChenMiaoi",
+  "license": "MIT",
+  "publishConfig": {
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
