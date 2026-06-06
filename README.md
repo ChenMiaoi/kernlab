@@ -197,11 +197,12 @@ sudo apt-get install -y \
 
 ## 发布 npm 初始化器
 
-仓库已包含可发布包 `create-kernlab`。发布前先检查包内容：
+仓库通过 `.github/workflows/publish.yml` 使用 npm OIDC trusted publishing。发布前先检查包内容，然后推送匹配 `package.json` 版本的 tag：
 
 ```bash
 npm pack --dry-run
-npm publish --access public
+git tag -a v$(node -p "require('./package.json').version") -m v$(node -p "require('./package.json').version")
+git push origin --follow-tags
 ```
 
 发布后用户可以直接运行：
