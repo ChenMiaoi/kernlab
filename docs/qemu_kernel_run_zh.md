@@ -1,32 +1,59 @@
-# 在 QEMU 里启动模板化 Linux（x86_64 / arm / arm64 / riscv）
+# 在 QEMU 里启动工作区 Linux（x86_64 / arm / arm64 / riscv）
 
-本仓库现在可以作为 QEMU Linux 模板使用：用 curl 拉取并初始化模板，编辑一次 `qemu-linux.mk`，之后用 `make run` 构建并启动。
+本模板的默认入口是 Linux-first 工作区：`linux/` 是用户主要编辑的内核源码，QEMU/BusyBox/脚本放在隐藏的 `.qemu-linux-template/` 支持目录里。
 
-## 1. 模板入口
+## 1. 工作区入口
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
-cd my_linux
-$EDITOR qemu-linux.mk   # 可选
+cd qemu-linux-workspace
+$EDITOR linux/          # 主要编辑区：Linux 内核源码
+$EDITOR qemu-linux.mk   # 可选：构建/运行配置
 make run
+```
+
+默认结构：
+
+```text
+qemu-linux-workspace/
+  linux/                 # 用户主要编辑的 Linux 源码树
+  .qemu-linux-template/  # 模板、脚本、BusyBox、QEMU；通常不编辑
+  qemu-linux.mk          # 工作区本地配置
+  Makefile               # 委托到模板；在工作区根目录运行 make run
 ```
 
 覆盖安装目录或模板来源：
 
 ```bash
-INSTALL_DIR=~/src/qemu-linux curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
-REPO_URL=https://github.com/me/my_linux.git BRANCH=main INSTALL_DIR=~/src/my_linux \
+INSTALL_DIR=~/src/qemu-linux-workspace \
+  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+
+REPO_URL=https://github.com/me/my_linux.git BRANCH=main INSTALL_DIR=~/src/qemu-linux-workspace \
   curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
 ```
 
-如果已经 clone 了仓库，用本地初始化入口：
+使用已有 Linux checkout/fork：
+
+```bash
+LINUX_DIR=/home/me/src/linux \
+  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+```
+
+从指定 Linux fork/branch 克隆到工作区 `linux/`：
+
+```bash
+LINUX_URL=https://github.com/me/linux.git LINUX_BRANCH=my-topic \
+  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+```
+
+如果已经 clone 了模板仓库并且是在开发模板本身，用本地初始化入口：
 
 ```bash
 ./scripts/init-template.sh
 make init
 ```
 
-推荐把项目默认值写进根目录 `qemu-linux.mk`。它是 Make 语法，所有字段都用 `?=`，所以命令行仍然优先：
+推荐把项目默认值写进工作区根目录 `qemu-linux.mk`。它是 Make 语法，所有字段都用 `?=`，所以命令行仍然优先：
 
 ```bash
 make run ARCH=riscv MEMORY=1024 SMP=1
@@ -36,17 +63,14 @@ make run LINUX_DIR=/path/to/linux KERNEL_DEBUG=0
 常用配置：
 
 ```make
-ARCH ?= x86_64
-LINUX_DIR ?= $(REPO_DIR)/linux
-BUSYBOX_DIR ?= $(REPO_DIR)/busybox
-QEMU_DIR ?= $(REPO_DIR)/qemu
-OUT_DIR ?= $(REPO_DIR)/out/$(ARCH)
-LLVM ?= 1
-KERNEL_DEBUG ?= 1
-MEMORY ?=
-SMP ?=
-KERNEL_CMDLINE ?=
-QEMU_ARGS ?=
+TEMPLATE_DIR := $(CURDIR)/.qemu-linux-template
+LINUX_DIR ?= $(CURDIR)/linux
+BUSYBOX_DIR ?= $(TEMPLATE_DIR)/busybox
+QEMU_DIR ?= $(TEMPLATE_DIR)/qemu
+OUT_DIR ?= $(CURDIR)/out/$(ARCH)
+INITRAMFS_DIR ?= $(CURDIR)/out/initramfs/$(ARCH_CANON)
+BUSYBOX_OUT_DIR ?= $(CURDIR)/out/busybox/$(ARCH_CANON)
+QEMU_BUILD_DIR ?= $(CURDIR)/out/qemu/$(ARCH_CANON)
 ```
 
 ## 2. 外部仓库/模板复用
@@ -71,19 +95,27 @@ QEMU_BIN ?= /usr/bin/qemu-system-aarch64
 ```make
 INITRAMFS_HOSTNAME ?= qemu-linux
 INITRAMFS_BANNER ?= == booted from my template ==
-INITRAMFS_EXTRA_DIR ?= $(REPO_DIR)/rootfs-overlay
+INITRAMFS_EXTRA_DIR ?= $(CURDIR)/rootfs-overlay
 ```
 
 `INITRAMFS_EXTRA_DIR` 会在打包前复制到 rootfs 根目录。示例：`rootfs-overlay/etc/profile` 会成为 initramfs 内的 `/etc/profile`。路径不存在时脚本会直接报错。
 
-## 3. 依赖
+## 3. 工作区边界
 
-`scripts/build-kernel.sh`、`scripts/build-busybox.sh`、`scripts/build-qemu.sh` 和 `scripts/build-initramfs.sh` 会先自动检查依赖；缺失时会按系统可用的包管理器自动安装，当前支持 `apt-get`、`dnf`、`yum`、`pacman`、`zypper`、`apk`。
+- `linux/`：主要工作树。内核改动放这里，或者用 `LINUX_DIR` 指向外部 Linux checkout。
+- `qemu-linux.mk`：工作区本地构建/运行配置。
+- `Makefile`：工作区 wrapper，保留 `make run`、`make kernel`、`make qemu` 等入口。
+- `out/`：工作区构建输出。
+- `.qemu-linux-template/`：模板支持目录，包含 `busybox/`、`qemu/`、`scripts/` 和模板 Makefile；通常不要在内核实验中修改它。
+
+## 4. 依赖
+
+`.qemu-linux-template/scripts/build-kernel.sh`、`build-busybox.sh`、`build-qemu.sh` 和 `build-initramfs.sh` 会先自动检查依赖；缺失时会按系统可用的包管理器自动安装，当前支持 `apt-get`、`dnf`、`yum`、`pacman`、`zypper`、`apk`。
 
 只检查不安装：
 
 ```bash
-python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only --llvm --kernel-debug
+python3 .qemu-linux-template/scripts/ensure-build-deps.py --component kernel --component busybox --component qemu --component initramfs --check-only --llvm --kernel-debug
 ```
 
 不想在构建时自动安装依赖：
@@ -92,7 +124,7 @@ python3 ./scripts/ensure-build-deps.py --component kernel --component busybox --
 make run ENSURE_BUILD_DEPS=0
 ```
 
-默认内核构建使用 LLVM/Clang；如需 GCC/binutils，设置 `LLVM=0`。默认还会通过 `bear` 刷新根目录 `compile_commands.json`，方便 `clangd` 索引 `linux/`；如不需要，设置 `KERNEL_DEBUG=0`。
+默认内核构建使用 LLVM/Clang；如需 GCC/binutils，设置 `LLVM=0`。默认还会通过 `bear` 刷新 `.qemu-linux-template/compile_commands.json`，方便 `clangd` 索引；如不需要，设置 `KERNEL_DEBUG=0`。
 
 Debian/Ubuntu 手动安装示例（构建依赖，不包含系统 QEMU 二进制包）：
 
@@ -112,9 +144,9 @@ sudo apt-get install -y \
   libc6-dev-armhf-cross libc6-dev-arm64-cross libc6-dev-riscv64-cross
 ```
 
-`initramfs` 里的 BusyBox 必须和目标架构一致，否则启动时会出现 `Starting init ... error -8`（`Exec format error`）。跨架构建议使用目标架构静态链接 BusyBox；`make run ARCH=<arch>` 会优先构建本仓库 `busybox/`。
+`initramfs` 里的 BusyBox 必须和目标架构一致，否则启动时会出现 `Starting init ... error -8`（`Exec format error`）。跨架构建议使用目标架构静态链接 BusyBox；`make run ARCH=<arch>` 会优先构建工作区 `out/busybox/<arch>/busybox`。
 
-## 4. 一键编译并启动
+## 5. 一键编译并启动
 
 ```bash
 make init
@@ -134,7 +166,7 @@ make arm64
 reboot -f
 ```
 
-## 5. 分步执行
+## 6. 分步执行
 
 ```bash
 make kernel ARCH=riscv
@@ -144,29 +176,29 @@ make initramfs ARCH=riscv
 make run ARCH=riscv
 ```
 
-手动初始化 submodule 通常只作为排障 fallback：
+手动初始化模板 submodule 通常只作为排障 fallback：
 
 ```bash
-git submodule update --init --recursive --depth 1 linux busybox qemu
+make -C .qemu-linux-template init SUBMODULES="busybox qemu"
 ```
 
 也可以直接使用脚本；脚本接受与 `qemu-linux.mk` 对应的环境变量：
 
 ```bash
-ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- ./scripts/build-and-run-qemu.sh
+ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-linux-template/scripts/build-and-run-qemu.sh
 ```
 
 分步脚本：
 
 ```bash
-ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- ./scripts/build-kernel.sh
-ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- ./scripts/build-busybox.sh
-ARCH=riscv ./scripts/build-qemu.sh
-ARCH=riscv ./scripts/build-initramfs.sh
-ARCH=riscv ./scripts/run-qemu.sh
+ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-linux-template/scripts/build-kernel.sh
+ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu- .qemu-linux-template/scripts/build-busybox.sh
+ARCH=riscv .qemu-linux-template/scripts/build-qemu.sh
+ARCH=riscv .qemu-linux-template/scripts/build-initramfs.sh
+ARCH=riscv .qemu-linux-template/scripts/run-qemu.sh
 ```
 
-## 6. 常用运行参数
+## 7. 常用运行参数
 
 优先写入 `qemu-linux.mk`，临时实验时用命令行覆盖：
 
@@ -177,10 +209,10 @@ make run QEMU_ARGS="-s -S"
 make run KERNEL_CMDLINE="loglevel=7 printk.time=1 panic=-1 console=ttyAMA0 rdinit=/init"
 ```
 
-## 7. 输出文件位置
+## 8. 输出文件位置
 
 - 内核镜像：`out/$ARCH/arch/...`
 - BusyBox：`out/busybox/$ARCH/busybox`
 - QEMU：`out/qemu/$ARCH/qemu-system-*`
 - initramfs：`out/initramfs/$ARCH/initramfs.cpio.gz`
-- 编译数据库：`compile_commands.json`（来自 `out/$ARCH/compile_commands.json`）
+- 编译数据库：`.qemu-linux-template/compile_commands.json`（来自 `out/$ARCH/compile_commands.json`）

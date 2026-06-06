@@ -12,7 +12,8 @@ Environment variables:
   INITRAMFS_DIR   Initramfs output dir (default: <repo>/out/initramfs/<arch>)
   ROOTFS_DIR      Staging rootfs dir (default: <INITRAMFS_DIR>/rootfs)
   INITRAMFS_IMAGE Output archive path (default: <INITRAMFS_DIR>/initramfs.cpio.gz)
-  BUSYBOX_BIN       Busybox binary path (default: auto-detect per ARCH)
+  BUSYBOX_BIN     Busybox binary path (default: auto-detect per ARCH)
+  BUSYBOX_OUT_DIR Built BusyBox output dir used before system fallbacks
   INITRAMFS_HOSTNAME Optional /etc/hostname content (default: none)
   INITRAMFS_BANNER   Boot banner printed by init scripts (default: == custom kernel booted ==)
   INITRAMFS_EXTRA_DIR Optional rootfs overlay copied before packing
@@ -76,10 +77,12 @@ detect_busybox_bin() {
     local arch="$1"
     local -a candidate_bins=()
     local candidate=""
+    local built_busybox="${BUSYBOX_OUT_DIR:-${REPO_DIR}/out/busybox/${arch}}/busybox"
 
     case "${arch}" in
         x86_64)
             candidate_bins=(
+                "${built_busybox}"
                 "${REPO_DIR}/out/busybox/x86_64/busybox"
                 "${REPO_DIR}/out/busybox/amd64/busybox"
                 "busybox"
@@ -87,6 +90,7 @@ detect_busybox_bin() {
             ;;
         arm)
             candidate_bins=(
+                "${built_busybox}"
                 "${REPO_DIR}/out/busybox/arm/busybox"
                 "${REPO_DIR}/out/busybox/arm32/busybox"
                 "arm-linux-gnueabihf-busybox"
@@ -97,6 +101,7 @@ detect_busybox_bin() {
             ;;
         arm64)
             candidate_bins=(
+                "${built_busybox}"
                 "${REPO_DIR}/out/busybox/arm64/busybox"
                 "${REPO_DIR}/out/busybox/aarch64/busybox"
                 "${REPO_DIR}/out/busybox/aarch/busybox"
@@ -106,6 +111,7 @@ detect_busybox_bin() {
             ;;
         riscv)
             candidate_bins=(
+                "${built_busybox}"
                 "${REPO_DIR}/out/busybox/riscv/busybox"
                 "${REPO_DIR}/out/busybox/riscv64/busybox"
                 "riscv64-linux-gnu-busybox"
@@ -157,6 +163,7 @@ INITRAMFS_DIR="${INITRAMFS_DIR:-${REPO_DIR}/out/initramfs/${ARCH}}"
 ROOTFS_DIR="${ROOTFS_DIR:-${INITRAMFS_DIR}/rootfs}"
 INITRAMFS_IMAGE="${INITRAMFS_IMAGE:-${INITRAMFS_DIR}/initramfs.cpio.gz}"
 BUSYBOX_BIN="${BUSYBOX_BIN:-}"
+BUSYBOX_OUT_DIR="${BUSYBOX_OUT_DIR:-${REPO_DIR}/out/busybox/${ARCH}}"
 INITRAMFS_HOSTNAME="${INITRAMFS_HOSTNAME:-}"
 INITRAMFS_BANNER="${INITRAMFS_BANNER:-== custom kernel booted ==}"
 INITRAMFS_EXTRA_DIR="${INITRAMFS_EXTRA_DIR:-}"

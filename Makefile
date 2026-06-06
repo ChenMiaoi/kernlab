@@ -1,7 +1,8 @@
 SHELL := /usr/bin/env bash
 
 REPO_DIR := $(CURDIR)
--include $(REPO_DIR)/qemu-linux.mk
+CONFIG_FILE ?= $(REPO_DIR)/qemu-linux.mk
+-include $(CONFIG_FILE)
 
 ARCH ?= x86_64
 ARCH_CANON := $(ARCH)
@@ -86,8 +87,8 @@ help:
 	@echo "  make clean          Remove out/\$$ARCH, out/initramfs/\$$ARCH, out/busybox/\$$ARCH, out/qemu/\$$ARCH, compile_commands.json"
 	@echo ""
 	@echo "Config file:"
-	@echo "  qemu-linux.mk      Edit checked-in defaults; command-line variables still override"
-	@echo ""
+	@echo "  CONFIG_FILE=$(CONFIG_FILE)"
+	@echo "  qemu-linux.mk      Edit defaults there; command-line variables still override"
 	@echo "Common variables:"
 	@echo "  ARCH=$(ARCH)  # x86_64|arm|arm64|riscv"
 	@echo "  JOBS=$(JOBS)"
@@ -145,7 +146,7 @@ menuconfig:
 		"$(BUILD_KERNEL_SH)" --menuconfig
 
 initramfs:
-	@ARCH="$(ARCH)" INITRAMFS_DIR="$(INITRAMFS_DIR)" BUSYBOX_BIN="$(BUSYBOX_BIN)" \
+	@ARCH="$(ARCH)" INITRAMFS_DIR="$(INITRAMFS_DIR)" BUSYBOX_BIN="$(BUSYBOX_BIN)" BUSYBOX_OUT_DIR="$(BUSYBOX_OUT_DIR)" \
 		INITRAMFS_HOSTNAME="$(INITRAMFS_HOSTNAME)" INITRAMFS_BANNER="$(INITRAMFS_BANNER)" INITRAMFS_EXTRA_DIR="$(INITRAMFS_EXTRA_DIR)" \
 		ENSURE_BUILD_DEPS="$(ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)" \
 		"$(BUILD_INITRAMFS_SH)"
@@ -167,16 +168,16 @@ run: $(RUN_DEPS)
 		"$(RUN_QEMU_SH)" $(QEMU_ARGS)
 
 x86 x86_64:
-	@$(MAKE) run ARCH=x86_64 BUSYBOX_BIN="$(REPO_DIR)/out/busybox/x86_64/busybox"
+	@$(MAKE) run ARCH=x86_64
 
 arm:
-	@$(MAKE) run ARCH=arm BUSYBOX_BIN="$(REPO_DIR)/out/busybox/arm/busybox"
+	@$(MAKE) run ARCH=arm
 
 arm64 aarch64:
-	@$(MAKE) run ARCH=arm64 BUSYBOX_BIN="$(REPO_DIR)/out/busybox/arm64/busybox"
+	@$(MAKE) run ARCH=arm64
 
 riscv:
-	@$(MAKE) run ARCH=riscv BUSYBOX_BIN="$(REPO_DIR)/out/busybox/riscv/busybox"
+	@$(MAKE) run ARCH=riscv
 
 build-and-run:
 	@bb_bin="$(BUSYBOX_BIN)"; \
