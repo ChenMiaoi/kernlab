@@ -36,6 +36,12 @@ KERNEL_DEBUG ?= 1
 BEAR_BIN ?= bear
 ENSURE_BUILD_DEPS ?= 1
 PYTHON_BIN ?= python3
+SUBMODULE_DEPTH ?= 1
+SUBMODULES ?= linux busybox qemu
+INIT_ENSURE_BUILD_DEPS := 0
+ifneq ($(filter command line environment,$(origin ENSURE_BUILD_DEPS)),)
+INIT_ENSURE_BUILD_DEPS := $(ENSURE_BUILD_DEPS)
+endif
 .DEFAULT_GOAL := x86
 
 SCRIPTS_DIR := $(REPO_DIR)/scripts
@@ -49,6 +55,7 @@ BUILD_QEMU_SH := $(SCRIPTS_DIR)/build-qemu.sh
 BUILD_INITRAMFS_SH := $(SCRIPTS_DIR)/build-initramfs.sh
 BUILD_AND_RUN_QEMU_SH := $(SCRIPTS_DIR)/build-and-run-qemu.sh
 RUN_QEMU_SH := $(SCRIPTS_DIR)/run-qemu.sh
+INIT_TEMPLATE_SH := $(SCRIPTS_DIR)/init-template.sh
 
 QEMU_ARGS ?=
 MEMORY ?=
@@ -56,7 +63,7 @@ SMP ?=
 KERNEL_CMDLINE ?=
 CROSS_ARCH_ALIASES := arm arm32 arm64 aarch64 aarch riscv riscv64
 
-.PHONY: help all kernel busybox qemu menuconfig initramfs run build-and-run clean x86 x86_64 arm arm64 aarch64 riscv
+.PHONY: help init all kernel busybox qemu menuconfig initramfs run build-and-run clean x86 x86_64 arm arm64 aarch64 riscv
 
 help:
 	@echo "Kernel + QEMU workflow"
@@ -67,6 +74,7 @@ help:
 	@echo "  make arm            Build+run arm kernel in QEMU"
 	@echo "  make arm64          Build+run arm64 kernel in QEMU"
 	@echo "  make riscv          Build+run riscv kernel in QEMU"
+	@echo "  make init           Initialize shallow submodules for this template"
 	@echo "  make kernel         Build kernel to out/\$$ARCH"
 	@echo "  make busybox        Build busybox from ./busybox to out/busybox/\$$ARCH"
 	@echo "  make qemu           Build qemu from ./qemu to out/qemu/\$$ARCH"
@@ -107,6 +115,11 @@ help:
 	@echo "  SMP=$(SMP)        # empty means per-arch default"
 	@echo "  KERNEL_CMDLINE=$(KERNEL_CMDLINE)  # empty means per-arch default"
 	@echo "  QEMU_ARGS=$(QEMU_ARGS)"
+
+init:
+	@REPO_DIR="$(REPO_DIR)" SUBMODULE_DEPTH="$(SUBMODULE_DEPTH)" SUBMODULES="$(SUBMODULES)" \
+		ENSURE_BUILD_DEPS="$(INIT_ENSURE_BUILD_DEPS)" PYTHON_BIN="$(PYTHON_BIN)" \
+		"$(INIT_TEMPLATE_SH)"
 
 kernel:
 	@ARCH="$(ARCH)" LINUX_DIR="$(LINUX_DIR)" OUT_DIR="$(OUT_DIR)" DEFCONFIG="$(DEFCONFIG)" KERNEL_TARGET="$(KERNEL_TARGET)" JOBS="$(JOBS)" \

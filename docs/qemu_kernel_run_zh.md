@@ -1,13 +1,29 @@
 # 在 QEMU 里启动模板化 Linux（x86_64 / arm / arm64 / riscv）
 
-本仓库现在可以作为 QEMU Linux 模板使用：初始化 submodule，编辑一次 `qemu-linux.mk`，之后用 `make run` 构建并启动。
+本仓库现在可以作为 QEMU Linux 模板使用：用 curl 拉取并初始化模板，编辑一次 `qemu-linux.mk`，之后用 `make run` 构建并启动。
 
 ## 1. 模板入口
 
 ```bash
-git submodule update --init --recursive --depth 1 linux busybox qemu
-$EDITOR qemu-linux.mk
+curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+cd my_linux
+$EDITOR qemu-linux.mk   # 可选
 make run
+```
+
+覆盖安装目录或模板来源：
+
+```bash
+INSTALL_DIR=~/src/qemu-linux curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+REPO_URL=https://github.com/me/my_linux.git BRANCH=main INSTALL_DIR=~/src/my_linux \
+  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+```
+
+如果已经 clone 了仓库，用本地初始化入口：
+
+```bash
+./scripts/init-template.sh
+make init
 ```
 
 推荐把项目默认值写进根目录 `qemu-linux.mk`。它是 Make 语法，所有字段都用 `?=`，所以命令行仍然优先：
@@ -101,6 +117,7 @@ sudo apt-get install -y \
 ## 4. 一键编译并启动
 
 ```bash
+make init
 make run
 make run ARCH=riscv
 make arm64
@@ -125,6 +142,12 @@ make busybox ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu-
 make qemu ARCH=riscv
 make initramfs ARCH=riscv
 make run ARCH=riscv
+```
+
+手动初始化 submodule 通常只作为排障 fallback：
+
+```bash
+git submodule update --init --recursive --depth 1 linux busybox qemu
 ```
 
 也可以直接使用脚本；脚本接受与 `qemu-linux.mk` 对应的环境变量：

@@ -7,9 +7,25 @@
 ## 模板快速开始
 
 ```bash
-git submodule update --init --recursive --depth 1 linux busybox qemu
-$EDITOR qemu-linux.mk
+curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+cd my_linux
+$EDITOR qemu-linux.mk   # 可选
 make run
+```
+
+安装目录和来源都可以覆盖：
+
+```bash
+INSTALL_DIR=~/src/qemu-linux curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+REPO_URL=https://github.com/me/my_linux.git BRANCH=main INSTALL_DIR=~/src/my_linux \
+  curl -fsSL https://raw.githubusercontent.com/ChenMiaoi/my_linux/main/scripts/bootstrap.sh | bash
+```
+
+如果已经在本仓库 checkout 内，使用本地初始化入口：
+
+```bash
+./scripts/init-template.sh
+make init
 ```
 
 `qemu-linux.mk` 是一等配置入口，使用 Make 语法和 `?=` 默认值。常见做法是在模板仓库中提交本项目需要的默认配置；临时覆盖仍然用命令行：
@@ -28,6 +44,8 @@ make run LINUX_DIR=/path/to/linux KERNEL_DEBUG=0
 - `linux/`: Linux 内核源码（submodule，可用 `LINUX_DIR` 指向外部源码树）
 - `busybox/`: BusyBox 源码（submodule）
 - `qemu/`: QEMU 源码（submodule）
+- `scripts/bootstrap.sh`: curl 驱动的模板 clone + 初始化脚本
+- `scripts/init-template.sh`: 本地 checkout 初始化脚本
 - `scripts/build-kernel.sh`: 内核构建脚本
 - `scripts/build-busybox.sh`: BusyBox 构建脚本
 - `scripts/build-qemu.sh`: QEMU 构建脚本
@@ -138,6 +156,7 @@ sudo apt-get install -y \
 
 ```bash
 make help
+make init
 make kernel ARCH=riscv
 make busybox ARCH=riscv CROSS_COMPILE=riscv64-linux-gnu-
 make qemu ARCH=riscv
@@ -173,6 +192,12 @@ ARCH=riscv ./scripts/run-qemu.sh
 - BusyBox：`out/busybox/$ARCH/busybox`
 - QEMU：`out/qemu/$ARCH/qemu-system-*`
 - initramfs：`out/initramfs/$ARCH/initramfs.cpio.gz`
+
+手动初始化 submodule 通常只作为排障 fallback：
+
+```bash
+git submodule update --init --recursive --depth 1 linux busybox qemu
+```
 
 ## 故障排查
 
