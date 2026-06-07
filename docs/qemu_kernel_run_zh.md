@@ -48,6 +48,14 @@ npx create-kernlab --linux-dir /home/me/src/linux
 npx create-kernlab --linux-url https://github.com/me/linux.git --linux-branch my-topic
 ```
 
+更新已有工作区的 `.kernlab/` 模板、脚本、QEMU/BusyBox 支持仓库，以及工作区 `.codex/skills/` 内由 kernlab 管理的 agent skills：
+
+```bash
+npx create-kernlab@latest --update
+```
+
+`--update` 不会重建 `linux/`，也不会覆盖你改过的 `qemu-linux.mk`；它只刷新 `.kernlab/`、生成的顶层 `Makefile` 和 kernlab 管理的 skill，例如“对内核编写代码”规则。
+
 如果 npm 包还没发布，或者已经 clone 了模板仓库并且是在开发模板本身，用本地入口：
 
 ```bash

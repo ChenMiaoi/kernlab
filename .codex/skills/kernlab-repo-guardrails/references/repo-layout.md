@@ -1,4 +1,4 @@
-# my_linux 目录职责
+# kernlab 目录职责
 
 这个仓库的主要边界在仓库根目录一级。对于 `linux/`、`busybox/`、`qemu/` 这类上游 submodule，本 skill 默认把它们各自视为一个完整责任单元，而不是继续细拆其内部所有子目录。
 
@@ -63,7 +63,7 @@
 | `Makefile` | 仓库根入口，负责统一常用目标和变量接口。 | 目标、参数入口变化时改；避免把复杂实现塞进 Makefile。 |
 | `.gitmodules` | submodule 的路径、远端和 shallow 配置。 | 只有在明确变更 submodule 来源或拉取策略时修改。 |
 | `.gitignore` | 忽略规则。 | 新增产物或本地缓存时再补充。 |
-| `.codex` | 当前为保留的空文件。 | 未明确要求前不要 repurpose 或删除。 |
+| `.codex/` | Codex/agent 使用的仓库规则、skill 与参考资料。 | 修改 agent 行为规则时改这里；规则文档必须和仓库当前名称、目录职责保持一致。 |
 
 ## 目录落点判断
 

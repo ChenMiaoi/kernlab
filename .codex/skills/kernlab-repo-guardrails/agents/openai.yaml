@@ -1,0 +1,4 @@
+interface:
+  display_name: "kernlab Repo Guardrails"
+  short_description: "kernlab 仓库目录边界、内核 patch 规则、提交和 PR 约束"
+  default_prompt: "Use $kernlab-repo-guardrails to choose the right directory, write Linux-kernel-compliant patches, plan compliant commits, and keep PRs focused in this repository."

@@ -1,11 +1,11 @@
 ---
-name: my-linux-repo-guardrails
-description: Repo-specific guidance for working in the my_linux repository. Use when tasks need directory ownership or edit boundaries, commit strategy, Conventional Commit subjects, Signed-off-by enforcement, or focused Pull Request rules. Also covers Chinese requests about 目录职责、提交规范、PR 规则、atomic commits、refactor-then-feature, and large commit bodies.
+name: kernlab-repo-guardrails
+description: Repo-specific guidance for working in the kernlab repository. Use when tasks need directory ownership or edit boundaries, kernel coding/submission rules, commit strategy, Conventional Commit subjects, Signed-off-by enforcement, or focused Pull Request rules. Also covers Chinese requests about 目录职责、提交规范、PR 规则、atomic commits、refactor-then-feature, Linux kernel patch writing, and large commit bodies.
 ---
 
-# my_linux Repo Guardrails
+# kernlab Repo Guardrails
 
-在 `my_linux` 仓库内工作时使用这个 skill。
+在 `kernlab` 仓库内工作时使用这个 skill。
 
 ## 快速流程
 
@@ -18,8 +18,9 @@ description: Repo-specific guidance for working in the my_linux repository. Use 
    - 一个 commit 只承载一个逻辑变化。
    - 若功能依赖重构，先做重构 commit，再做功能 commit。
 5. 准备提交或给出提交命令时，一律使用 `git commit -s`。
-6. 提交标题、body、PR 聚焦范围，按 [references/commit-and-pr-rules.md](references/commit-and-pr-rules.md) 执行。
-7. 如果一个 commit 达到“大提交”阈值，必须写 body，并使用 `- ...` 分点说明主要改动。
+6. 涉及 `linux/` 内核源码或内核 patch 文案时，先读 [references/linux-kernel-patch-rules.md](references/linux-kernel-patch-rules.md)，按 Linux 文档要求写代码和提交说明。
+7. 提交标题、body、PR 聚焦范围，按 [references/commit-and-pr-rules.md](references/commit-and-pr-rules.md) 执行。
+8. 如果一个 commit 达到“大提交”阈值，必须写 body，并使用 `- ...` 分点说明主要改动。
 
 ## 仓库内的工作边界
 
@@ -48,3 +49,4 @@ description: Repo-specific guidance for working in the my_linux repository. Use 
 
 - 目录职责与编辑落点：[references/repo-layout.md](references/repo-layout.md)
 - 提交与 PR 规则：[references/commit-and-pr-rules.md](references/commit-and-pr-rules.md)
+- Linux 内核 patch 代码与提交规则：[references/linux-kernel-patch-rules.md](references/linux-kernel-patch-rules.md)

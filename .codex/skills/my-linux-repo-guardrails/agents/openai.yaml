@@ -1,4 +1,0 @@
-interface:
-  display_name: "my_linux Repo Guardrails"
-  short_description: "my_linux 仓库目录边界与提交和 PR 约束"
-  default_prompt: "Use $my-linux-repo-guardrails to choose the right directory, plan compliant commits, and keep PRs focused in this repository."

@@ -14,10 +14,11 @@
     ".gitmodules",
     "scripts/",
     "docs/",
+    ".codex/",
     "README.md"
   ],
   "scripts": {
-    "test": "node bin/create-kernlab.js --help && node bin/create-kernlab.js --dry-run --dir /tmp/kernlab-dry-run"
+    "test": "node bin/create-kernlab.js --help && node bin/create-kernlab.js --dry-run --dir /tmp/kernlab-dry-run && node tests/create-kernlab-update.js && node tests/create-kernlab-agent-skills.js"
   },
   "repository": {
     "type": "git",
